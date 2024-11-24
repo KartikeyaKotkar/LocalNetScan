@@ -1,5 +1,3 @@
----
-
 # Local Network Scanner (LNS)
 
 `LNS` is a simple and user-friendly Bash command-line tool for scanning devices on your local network. It automatically detects the local subnet, pings each device to find active IP addresses, retrieves their MAC addresses, and logs the results with timestamps. The tool offers options for saving results as a CSV file, making it convenient for network monitoring and device discovery.
