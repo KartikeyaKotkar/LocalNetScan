@@ -1,54 +1,31 @@
 #!/bin/bash
 
+read -p "Enter the subnet to scan (e.g., 192.168.1.0/24): " SUBNET
 
-SUBNET=$(hostname -I | awk '{print $1}' | cut -d '.' -f 1-3)
-DEFAULT_LOG_FILE="network_scan_$(date +%Y%m%d_%H%M%S).csv" 
-
-
-SAVE_TO_CSV=false  # Default to not saving
-CUSTOM_LOG_FILE=""
-
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --csv) SAVE_TO_CSV=true ;;  
-        --file) CUSTOM_LOG_FILE="$2"; shift ;;  
-        *) echo "Unknown option: $1"; exit 1 ;;
-    esac
-    shift
-done
-
-
-LOG_FILE="${CUSTOM_LOG_FILE:-$DEFAULT_LOG_FILE}"
-
-
-if $SAVE_TO_CSV; then
-    echo "Timestamp,IP Address,MAC Address" > "$LOG_FILE"
+if [[ -z "$SUBNET" ]]; then
+  echo "Error: No subnet provided. Please enter a valid subnet."
+  exit 1
 fi
 
-echo "Starting network scan on subnet $SUBNET.0/24..."
+# Generate a unique filename for the CSV
+CSV_FILE="network_scan_$(date +'%Y%m%d_%H%M%S').csv"
+
+echo "Starting network scan on subnet $SUBNET..."
 echo "Scanning live devices, this may take a few seconds..."
 
+echo "IP Address,MAC Address" > "$CSV_FILE"
 
 for i in $(seq 1 254); do
-    IP="$SUBNET.$i"
-    
-    ping -c 1 -W 1 $IP &> /dev/null
-    
-    
-    if [ $? -eq 0 ]; then
-        
-        MAC=$(arp -n $IP | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}')
-        if [ -n "$MAC" ]; then
-            echo "Found device: IP=$IP, MAC=$MAC"
-            if $SAVE_TO_CSV; then
-                echo "$(date),$IP,$MAC" >> "$LOG_FILE"
-            fi
-        fi
+  CURRENT_IP=$(echo "$SUBNET" | sed "s/0\/24/$i/")
+  ping -c 1 -W 1 "$CURRENT_IP" > /dev/null
+
+  if [ $? -eq 0 ]; then
+    MAC_ADDRESS=$(arp -n "$CURRENT_IP" | awk '/ether/ {print $3}')
+    if [[ ! -z "$MAC_ADDRESS" ]]; then
+      echo "$CURRENT_IP,$MAC_ADDRESS" >> "$CSV_FILE"
+      echo "Device found at $CURRENT_IP with MAC $MAC_ADDRESS"
     fi
+  fi
 done
 
-if $SAVE_TO_CSV; then
-    echo "Network scan completed. Results saved to $LOG_FILE."
-else
-    echo "Network scan completed."
-fi
+echo "Scan complete. Results saved to $CSV_FILE."
